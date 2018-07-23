@@ -78,14 +78,34 @@ def anp_disk_allocation(anp_id):
     return anp_allocation, anp_config_yaml
 
 
-def anp_disk_space():
-    pass
-    return
+def anp_disk_space(anp_allocation):
+    disk_group_names = 'disk_group_names={}'.format(anp_allocation)
+    disk_volume = subprocess.check_output(["genome", "disk", "volume", "list", "-f", disk_group_names, "--accurate",
+                                           "--show", "+can_allocate", "--style=tsv"]).decode('utf-8').splitlines()
+    percent_allocated = disk_volume[1].split('\t')[4]
+    percent_used = disk_volume[1].split('\t')[3]
+    can_allocate = disk_volume[1].split('\t')[5]
+    print('\nRuning genome disk volume list:')
+    for line in disk_volume:
+        print(line)
+
+    if can_allocate == '0':
+        can_allocate = 'can_allocate is {},contact support'.format(can_allocate)
+
+    if float(percent_used) > 80:
+        percent_used = 'Disk percentage is {}, contact analyst'
+
+    return can_allocate, percent_used, percent_allocated
 
 
 def genome_analysis_project_view(anp):
-    pass
-    return
+    print('\nRunning genome analysis-project-view:')
+    project_view_list = subprocess.check_output(["genome", "analysis-project", "view", "--instrument-data",
+                                                 "--fast-model-summary", anp]).decode('utf-8').splitlines()
+    for line in project_view_list:
+        if ('Updated:'and 'Created by:') in line and 'Status:' not in line:
+                analyst = line.split(':')[4].strip()
+    return analyst
 
 
 def main():
@@ -112,10 +132,14 @@ def main():
     anp_status = anp_status_query(anp_id)
     config_status = anp_show_config(woid, anp_id)
     anp_allocation, anp_allocation_dir = anp_disk_allocation(anp_id)
+    anp_can_allocate, anp_disk_percentage, anp_percent_allocated = anp_disk_space(anp_allocation)
+    anp_analyst = genome_analysis_project_view(anp_id)
 
-    print('\nWork order ID: {}\nlims url: {}\nAnp ticket: {}\nAnp ticket link: {}\nAnp ID: {}\nAnp status: {}'
-          '\nAnP show active config: {}\nAnp allocation: {}\nAnp allocation file: {}'
-          .format(woid, lims_url, anp_ticket, anp_link, anp_id, anp_status, config_status, anp_allocation, anp_allocation_dir))
+    print('\nWork order ID: {}\nlims url: {}\nAnp ticket: {}\nAnp ticket link: {}\nAnp analyst: {}\nAnp ID: {}\n'
+          'Anp status: {}\nAnP show active config: {}\nAnp allocation: {}\nAnp allocation file: {}\n'
+          'Anp can_allocate: {}\nAnp disk percent_used: {}\nAnp disk percent_allocated: {}'
+          .format(woid, lims_url, anp_ticket, anp_link, anp_analyst, anp_id, anp_status, config_status, anp_allocation,
+                  anp_allocation_dir, anp_can_allocate, anp_disk_percentage, anp_percent_allocated))
 
 
 if __name__ == '__main__':
